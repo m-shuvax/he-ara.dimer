@@ -11,7 +11,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
-const mySqlQuery = async (sql) => {
+
+const SqlQuery = async (sql) => {
     return new Promise((resolve, reject) => {
         pool.getConnection((err, connection) => {
             if (err) {
@@ -66,5 +67,6 @@ module.exports = {
     db,
     insert,
     update,
-    select    
+    select,
+    SqlQuery
 }
