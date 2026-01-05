@@ -12,61 +12,82 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 
-const SqlQuery = async (sql) => {
-    return new Promise((resolve, reject) => {
-        pool.getConnection((err, connection) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            connection.query(sql, (error, results, fields) => {
-                connection.release();
-                if (error) {
-                    console.trace(sql);
-                    console.log(error.message);
-                    reject(error);
-                    return;
-                }
-                resolve(results);
-            });
-        });
+const query = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('SQL Error:', err.message);
+        reject(err);
+      } else {
+        resolve(rows);
+      }
     });
-}
+  });
+};
 
-const insert = async (table, values) => {
-    try {
-        const sql = mysql.format(`INSERT INTO ${table} SET ? `, values);
-        return mySqlQuery(sql);
-    } catch (err) {
-        console.trace(err);
-        return err;
-    }
-}
+const insert = (table, values) => {
+  return new Promise((resolve, reject) => {
+    const keys = Object.keys(values);
+    const placeholders = keys.map(() => '?').join(', ');
+    const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
+    const params = Object.values(values);
 
+    db.run(sql, params, function(err) {
+      if (err) {
+        console.error('Insert Error:', err.message);
+        reject(err);
+      } else {
+        resolve({ id: this.lastID, changes: this.changes });
+      }
+    });
+  });
+};
 
+const update = (table, values, where) => {
+  return new Promise((resolve, reject) => {
+    const setClause = Object.keys(values).map(key => `${key} = ?`).join(', ');
+    const whereClause = where.map(w => `${w.field} ${w.operator} ?`).join(' AND ');
+    const sql = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}`;
+    const params = [...Object.values(values), ...where.map(w => w.value)];
 
-const update = async (table, values, where) => {
-    try {
-    const sql = mysql.format(`UPDATE ${table} SET ? WHERE ${where.map(w => `${w.field} ${w.operator} ${w.value}`).join(' AND ')}`, values);
-    return mySqlQuery(sql);
-    }catch(err){
-        console.trace(err);
-        return err;
-    }
-}
+    db.run(sql, params, function(err) {
+      if (err) {
+        console.error('Update Error:', err.message);
+        reject(err);
+      } else {
+        resolve({ changes: this.changes });
+      }
+    });
+  });
+};
 
-
-const select = async (table, where, columnsSelect) => {
+const select = (table, where = null, columnsSelect = null) => {
+  return new Promise((resolve, reject) => {
     const columns = columnsSelect ? columnsSelect.join(', ') : '*';
-    const sql = mysql.format(`SELECT ${columns} FROM ${table} ${where ? `WHERE ${where.map(w => `${w.field} ${w.operator} ${w.value}`).join(' AND ')}` : ''}`);
-    return mySqlQuery(sql);
-}
+    let sql = `SELECT ${columns} FROM ${table}`;
+    let params = [];
 
+    if (where && where.length > 0) {
+      const whereClause = where.map(w => `${w.field} ${w.operator} ?`).join(' AND ');
+      sql += ` WHERE ${whereClause}`;
+      params = where.map(w => w.value);
+    }
+
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('Select Error:', err.message);
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+};
 
 module.exports = {
-    db,
-    insert,
-    update,
-    select,
-    SqlQuery
+  db,
+  query,
+  insert,
+  update,
+  select
 }
