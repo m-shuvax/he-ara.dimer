@@ -6,7 +6,7 @@
 npm install
 npm start
 
-יש להריץ מתוך תיקיית ה־frontend:
+יש להריץ מתוך תיקיית my-react-ap:
 
 npm install
 npm run dev
